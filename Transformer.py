@@ -1,22 +1,25 @@
 import numpy as np
 import math
 
-data = np.random.uniform(low=0, high=1, size=(128+1, 16))
-#data = np.array(([1.0,2,1],[2,3,5],[1,2,3]))
-#Tensor sizes
+seq_len = 16     # number of time steps
+d_model = 128    # embedding dimension
+num_heads = 8
+d_ff = 256       # hidden size in FFN
+
+
+data = np.random.uniform(low=0, high=1, size=(seq_len, d_model))
 d_k = np.size(data, axis=0)
 Qw = np.random.uniform(low=-1, high=1, size=(d_k, d_k))
 Kw = np.random.uniform(low=-1, high=1, size=(d_k, d_k))
 Vw = np.random.uniform(low=0, high=1, size=(d_k, d_k))
 
 #Prep input vector
-data[-1,:] = 0
+data[-1,:] = 1
 
 def softmax(QK):
+    QK = QK - np.max(QK, axis=-1, keepdims=True)
     QK = np.exp(QK)
     QK = QK / np.sum(QK, axis=1, keepdims=True)
-    #for i in range (np.size(QK, axis=0)):
-        #QK[i,:] = QK[i,:] / np.sum(QK[i,:])
     return QK
 
 def QKV_Combine(Q, K, V):
@@ -26,6 +29,15 @@ def QKV_Combine(Q, K, V):
     QKV = np.matmul(QK, V)
     return QKV
 
+def split_heads(x, num_heads):
+    # (seq_len, d_model) -> (num_heads, seq_len, d_head)
+    d_head = d_model // num_heads
+    return x.reshape(seq_len, num_heads, d_head).transpose(1, 0, 2)
+
+def combine_heads(x):
+    # (num_heads, seq_len, d_head) -> (seq_len, d_model)
+    num_heads, seq_len, d_head = x.shape
+    return x.transpose(1, 0, 2).reshape(seq_len, num_heads * d_head)
 
 def attention(qw, kw, vw, tensor):
     Q = np.matmul(qw, tensor)
