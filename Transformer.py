@@ -19,6 +19,8 @@ Qw = np.random.randn(d_model, d_model) / math.sqrt(d_model)
 Kw = np.random.randn(d_model, d_model) / math.sqrt(d_model)
 Vw = np.random.randn(d_model, d_model) / math.sqrt(d_model)
 W0 = np.random.randn(d_model * num_heads, d_model) / math.sqrt(d_model)
+W1 = np.random.randn(d_model, d_ff) / math.sqrt(d_model)
+W2 = np.random.randn(d_ff, d_model) / math.sqrt(d_model)
 
 def softmax(QK):
     QK = QK - np.max(QK, axis=-1, keepdims=True)
@@ -57,8 +59,8 @@ def combine_heads(x):
 
 
 def ffnn(inputlayer, wt1, wt2):
-    hiddenlayer = np.matmul(wt1, inputlayer)
-    outputlayer = np.matmul(hiddenlayer, wt2)
+    hiddenlayer = inputlayer @ wt1
+    outputlayer = hiddenlayer @ wt2
     return outputlayer
 
 
@@ -87,6 +89,13 @@ def multiheadattention(qw, kw, vw, w0, data):
     concat = combine_heads(attention)  # (seq, d_model)
     return concat @ w0
 
+def encoderlayer(qw, kw, vw, w0, w1, w2, data):
+    weighted = multiheadattention(qw, kw, vw, w0, data)
+    weighted = layernorm(weighted + data)
+    linear = ffnn(weighted, w1, w2)
+    linear = layernorm(linear + weighted)
+    return linear
 
-x = layernorm(multiheadattention(Qw, Kw, Vw, W0, data) + data)
+
+x = encoderlayer(Qw, Kw, Vw, W0, W1, W2, data) # 16x128
 print(x)
