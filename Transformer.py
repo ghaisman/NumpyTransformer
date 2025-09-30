@@ -17,16 +17,30 @@ W0 = np.random.randn(d_model * num_heads, d_model) / math.sqrt(d_model)
 W1 = np.random.randn(d_model, d_ff) / math.sqrt(d_model)
 W2 = np.random.randn(d_ff, d_model) / math.sqrt(d_model)
 
+#initialize positional encoding matrix
+pos = np.arange(seq_len)[:, np.newaxis]
+i = np.arange(d_model)[np.newaxis, :]
+anglefreqs = 1 / np.power(10000, 2 * (i // 2) / float(d_model))
+angles = pos @ anglefreqs
+encoding = np.zeros((seq_len, d_model))
+encoding[:, 0::2] = np.sin(angles[:, 0::2])
+encoding[:, 1::2] = np.cos(angles[:, 1::2])
+
+def posencode(input):
+    return input + encoding
+
 def softmax(QK):
     QK = QK - np.max(QK, axis=-1, keepdims=True)
     QK = np.exp(QK)
     QK = QK / np.sum(QK, axis=-1, keepdims=True)
     return QK
 
+
 def layernorm(x, eps=1e-6):
     mean = x.mean(axis=-1, keepdims=True)
     std = x.std(axis=-1, keepdims=True)
     return (x - mean) / (std + eps)
+
 
 def combine_heads(x):
     # (num_heads, seq_len, d_head) -> (seq_len, d_model)
@@ -35,7 +49,7 @@ def combine_heads(x):
 
 
 def ffnn(inputlayer, wt1, wt2):
-    hiddenlayer = inputlayer @ wt1
+    hiddenlayer = np.maximum(0, inputlayer @ wt1)
     outputlayer = hiddenlayer @ wt2
     return outputlayer
 
@@ -89,5 +103,5 @@ def full_architecture(data, qw, kw, vw, w0, w1, w2, fw0, fw1, fw2, ow):
     return output
 
 
-x = encoderlayer(Qw, Kw, Vw, W0, W1, W2, data) # 16x128
+x = encoderlayer(Qw, Kw, Vw, W0, W1, W2, posencode(data)) # 16x128
 print(x)
